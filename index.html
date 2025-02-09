@@ -32,9 +32,15 @@
     </style>
 </head>
 <body>
-    <div class="input-group">
-        <label for="checkpoint">Checkpoint Name:</label>
-        <input type="text" id="checkpoint" required>
+    <div id="checkpointSection" style="margin: 20px 0;">
+        <div id="checkpointInput" style="margin-bottom: 10px;">
+            <input type="text" id="checkpointName" placeholder="Sisesta kontrollpunkti nimi">
+            <button onclick="saveCheckpoint()">Salvesta</button>
+        </div>
+        <div id="checkpointDisplay" style="display: none;">
+            <span>Kontrollpunkt: <span id="displayedCheckpoint"></span></span>
+            <button onclick="editCheckpoint()" style="margin-left: 10px;">Muuda</button>
+        </div>
     </div>
 
     <div id="scanner-container">
@@ -130,6 +136,22 @@
                     console.error('Error adding data:', error);
                     alert('Error updating spreadsheet. Please try again.');
                 });
+        }
+
+        function saveCheckpoint() {
+            const checkpointName = document.getElementById('checkpointName').value.trim();
+            if (checkpointName) {
+                document.getElementById('displayedCheckpoint').textContent = checkpointName;
+                document.getElementById('checkpointInput').style.display = 'none';
+                document.getElementById('checkpointDisplay').style.display = 'block';
+            }
+        }
+
+        function editCheckpoint() {
+            const currentName = document.getElementById('displayedCheckpoint').textContent;
+            document.getElementById('checkpointName').value = currentName;
+            document.getElementById('checkpointInput').style.display = 'block';
+            document.getElementById('checkpointDisplay').style.display = 'none';
         }
     </script>
 </body>
