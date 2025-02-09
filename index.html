@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="ee">
 <head>
     <title>Race Checkpoint Scanner</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -26,7 +26,7 @@
 <body>
     <div id="checkpointSection" style="margin: 20px 0;">
         <div id="checkpointInput" style="margin-bottom: 10px;">
-            <input type="text" id="checkpointName" placeholder="Sisesta kontrollpunkti nimi">
+            <label for="checkpointName"></label><input type="text" id="checkpointName" placeholder="Sisesta kontrollpunkti nimi">
             <button onclick="saveCheckpoint()">Salvesta</button>
         </div>
         <div id="checkpointDisplay" style="display: none;">
@@ -39,7 +39,7 @@
     <div id="cameraSection" style="margin: 20px 0;">
         <button id="startScanButton" onclick="startScanning()">Skänni QR kood</button>
         <div id="cameraView" style="display: none;">
-            <video id="qr-video" style="width: 100%; max-width: 500px;"></video>
+            <video id="qr-video" style="width: 100%; max-width: 500px; transform: scaleX(-1);"></video>
         </div>
         <div id="scanResult" style="display: none; margin-top: 10px;">
             <p>Meeskonna number: <span id="teamNumber"></span></p>
