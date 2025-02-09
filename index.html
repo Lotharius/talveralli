@@ -40,6 +40,7 @@
         <button id="startScanButton" onclick="startScanning()">Skänni QR kood</button>
         <div id="cameraView" style="display: none;">
             <video id="qr-video" style="width: 100%; max-width: 500px; transform: scaleX(-1);"></video>
+            <button onclick="stopScanning()" style="margin-top: 10px;">Sulge</button>
         </div>
         <div id="scanResult" style="display: none; margin-top: 10px;">
             <p>Meeskonna number: <span id="teamNumber"></span></p>
@@ -130,28 +131,35 @@
                 return;
             }
 
-            document.getElementById('teamNumber').textContent = teamNumber;
-            document.getElementById('timestamp').textContent = timestamp.toLocaleString('et-EE');
-            document.getElementById('scanResult').style.display = 'block';
+            const confirmMessage = `Kas soovid salvestada?\n\nMeeskonna number: ${teamNumber}\nAeg: ${timestamp.toLocaleString('et-EE')}`;
             
-            const lastScan = lastScans[teamNumber];
-            
-            if (lastScan) {
-                const timeDiff = (timestamp - lastScan) / 1000; // difference in seconds
+            if (confirm(confirmMessage)) {
+                document.getElementById('teamNumber').textContent = teamNumber;
+                document.getElementById('timestamp').textContent = timestamp.toLocaleString('et-EE');
+                document.getElementById('scanResult').style.display = 'block';
                 
-                if (timeDiff < 10) {
-                    if (!confirm('Ajavahemik on vähem kui 10 sekundit. Kas oled kindel, et soovid väljumise registreerida?')) {
-                        return;
+                const lastScan = lastScans[teamNumber];
+                
+                if (lastScan) {
+                    const timeDiff = (timestamp - lastScan) / 1000; // difference in seconds
+                    
+                    if (timeDiff < 10) {
+                        if (!confirm('Ajavahemik on vähem kui 10 sekundit. Kas oled kindel, et soovid väljumise registreerida?')) {
+                            return;
+                        }
                     }
-                }
 
-                // Record exit time
-                updateSheet(teamNumber, checkpoint, timestamp, 'väljumine');
-                delete lastScans[teamNumber];
+                    // Record exit time
+                    updateSheet(teamNumber, checkpoint, timestamp, 'väljumine');
+                    delete lastScans[teamNumber];
+                } else {
+                    // Record entry time
+                    updateSheet(teamNumber, checkpoint, timestamp, 'saabumine');
+                    lastScans[teamNumber] = timestamp;
+                }
             } else {
-                // Record entry time
-                updateSheet(teamNumber, checkpoint, timestamp, 'saabumine');
-                lastScans[teamNumber] = timestamp;
+                // If user cancels, restart scanning
+                startScanning();
             }
         }
 
@@ -192,6 +200,7 @@
                 document.getElementById('displayedCheckpoint').textContent = checkpointName;
                 document.getElementById('checkpointInput').style.display = 'none';
                 document.getElementById('checkpointDisplay').style.display = 'block';
+                localStorage.setItem('checkpointName', checkpointName);
             }
         }
 
@@ -201,6 +210,16 @@
             document.getElementById('checkpointInput').style.display = 'block';
             document.getElementById('checkpointDisplay').style.display = 'none';
         }
+
+        // Load saved checkpoint name on page load
+        window.onload = function() {
+            const savedCheckpoint = localStorage.getItem('checkpointName');
+            if (savedCheckpoint) {
+                document.getElementById('displayedCheckpoint').textContent = savedCheckpoint;
+                document.getElementById('checkpointInput').style.display = 'none';
+                document.getElementById('checkpointDisplay').style.display = 'block';
+            }
+        };
     </script>
 </body>
 </html>
