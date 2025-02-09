@@ -86,37 +86,32 @@
                     return;
                 }
 
-                // Try to find the rear camera
-                const rearCamera = cameras.find(camera => camera.name.toLowerCase().includes('back'));
-                const selectedCamera = rearCamera || cameras[0];
-
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { deviceId: selectedCamera.id }
-                });
+                // Prefer back camera if available
+                const camera = cameras[cameras.length > 1 ? 1 : 0];
                 
-                videoStream = stream;
-                video.srcObject = stream;
-                video.play();
-    
-                scanner = new Instascan.Scanner({ video: video });
-                scanner.addListener('scan', function(content) {
-                    handleScanResult(content);
-                    stopScanning();
+                scanner = new Instascan.Scanner({
+                    video: video,
+                    mirror: false  // Disable mirroring since we're using CSS transform
                 });
-                scanner.start();
+
+                scanner.addListener('scan', handleScanResult);
+
+                try {
+                    await scanner.start(camera);
+                } catch (e) {
+                    console.error('Failed to start scanner:', e);
+                    alert('Kaamera käivitamine ebaõnnestus!');
+                }
+
             } catch (error) {
                 console.error('Error accessing camera:', error);
-                alert('Viga kaamera kasutamisel. Palun kontrolli, et kaamera kasutamine on lubatud.');
+                alert('Kaamera ligipääs ebaõnnestus!');
             }
         }
 
         function stopScanning() {
             if (scanner) {
                 scanner.stop();
-            }
-            if (videoStream) {
-                videoStream.getTracks().forEach(track => track.stop());
-                videoStream = null;
             }
             document.getElementById('cameraView').style.display = 'none';
             document.getElementById('startScanButton').style.display = 'block';
