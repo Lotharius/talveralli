@@ -67,7 +67,7 @@
         gapi.load('client', initGoogleAPI);
 
         // Initialize QR Scanner
-        let scanner = null;
+        let scanner = new Instascan.Scanner({ video: video, mirror: false });
         let videoStream = null;
     
         async function startScanning() {
