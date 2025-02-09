@@ -75,10 +75,23 @@
                 document.getElementById('cameraView').style.display = 'block';
                 document.getElementById('startScanButton').style.display = 'none';
                 document.getElementById('scanResult').style.display = 'none';
-    
+
+                // Get list of cameras
+                const cameras = await Instascan.Camera.getCameras();
+                
+                if (cameras.length === 0) {
+                    alert('Kaameraid ei leitud!');
+                    return;
+                }
+
+                // Try to find the rear camera
+                const rearCamera = cameras.find(camera => camera.name.toLowerCase().includes('back'));
+                const selectedCamera = rearCamera || cameras[0];
+
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { exact: "environment" } }
+                    video: { deviceId: selectedCamera.id }
                 });
+                
                 videoStream = stream;
                 video.srcObject = stream;
                 video.play();
@@ -91,17 +104,7 @@
                 scanner.start();
             } catch (error) {
                 console.error('Error accessing camera:', error);
-                // If environment camera fails, try without exact requirement
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: "environment" }
-                    });
-                    videoStream = stream;
-                    video.srcObject = stream;
-                    video.play();
-                } catch (fallbackError) {
-                    alert('Error accessing camera. Please make sure you have granted camera permissions.');
-                }
+                alert('Viga kaamera kasutamisel. Palun kontrolli, et kaamera kasutamine on lubatud.');
             }
         }
 
@@ -119,53 +122,38 @@
     
         function handleScanResult(content) {
             const teamNumber = content; // Assuming QR content is the team number
-            const timestamp = new Date().toLocaleString('et-EE');
+            const timestamp = new Date();
+            const checkpoint = document.getElementById('displayedCheckpoint').textContent;
             
-            document.getElementById('teamNumber').textContent = teamNumber;
-            document.getElementById('timestamp').textContent = timestamp;
-            document.getElementById('scanResult').style.display = 'block';
-            
-            // Here you can add code to send the data to your spreadsheet
-        }
-        
-        scanner.addListener('scan', function(teamNumber) {
-            const checkpoint = document.getElementById('checkpoint').value;
             if (!checkpoint) {
-                alert('Please enter a checkpoint name first!');
+                alert('Palun sisesta kontrollpunkti nimi enne skännimist!');
                 return;
             }
 
-            const currentTime = new Date();
+            document.getElementById('teamNumber').textContent = teamNumber;
+            document.getElementById('timestamp').textContent = timestamp.toLocaleString('et-EE');
+            document.getElementById('scanResult').style.display = 'block';
+            
             const lastScan = lastScans[teamNumber];
-
+            
             if (lastScan) {
-                const timeDiff = (currentTime - lastScan) / 1000; // difference in seconds
+                const timeDiff = (timestamp - lastScan) / 1000; // difference in seconds
                 
                 if (timeDiff < 10) {
-                    if (!confirm('Time difference is less than 10 seconds. Are you sure you want to record this exit?')) {
+                    if (!confirm('Ajavahemik on vähem kui 10 sekundit. Kas oled kindel, et soovid väljumise registreerida?')) {
                         return;
                     }
                 }
 
                 // Record exit time
-                updateSheet(teamNumber, checkpoint, currentTime, 'exit');
+                updateSheet(teamNumber, checkpoint, timestamp, 'väljumine');
                 delete lastScans[teamNumber];
             } else {
                 // Record entry time
-                updateSheet(teamNumber, checkpoint, currentTime, 'entry');
-                lastScans[teamNumber] = currentTime;
+                updateSheet(teamNumber, checkpoint, timestamp, 'saabumine');
+                lastScans[teamNumber] = timestamp;
             }
-        });
-
-        // Start camera
-        Instascan.Camera.getCameras().then(function(cameras) {
-            if (cameras.length > 0) {
-                scanner.start(cameras[0]);
-            } else {
-                console.error('No cameras found.');
-                alert('No cameras found on your device.');
-            }
-        });
+        }
 
         function updateSheet(teamNumber, checkpoint, timestamp, type) {
             const params = {
@@ -190,11 +178,11 @@
 
             gapi.client.sheets.spreadsheets.values.append(params, request)
                 .then(function(response) {
-                    console.log('Data added successfully');
+                    console.log('Andmed edukalt lisatud');
                 })
                 .catch(function(error) {
-                    console.error('Error adding data:', error);
-                    alert('Error updating spreadsheet. Please try again.');
+                    console.error('Viga andmete lisamisel:', error);
+                    alert('Viga andmete lisamisel. Palun proovi uuesti.');
                 });
         }
 
