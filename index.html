@@ -30,6 +30,10 @@
     </style>
 </head>
 <body>
+    <div id="loginSection" style="margin: 20px 0;">
+        <button id="loginButton" onclick="handleAuthClick()" style="display: none;">Logi sisse Google'iga</button>
+        <span id="loginStatus"></span>
+    </div>
     <div id="checkpointSection" style="margin: 20px 0;">
         <div id="checkpointInput" style="margin-bottom: 10px;">
             <label for="checkpointName"></label><input type="text" id="checkpointName" placeholder="Sisesta kontrollpunkti nimi">
@@ -70,17 +74,50 @@
                 discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
                 scope: SCOPES
             }).then(function() {
+                // Show login button once API is initialized
+                document.getElementById('loginButton').style.display = 'block';
                 // Listen for sign-in state changes
                 gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
                 // Handle the initial sign-in state
                 updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+            }).catch(function(error) {
+                console.error('Error initializing Google API:', error);
+                document.getElementById('loginStatus').textContent = 'Viga Google API initsialiseerimisel';
             });
         }
 
         function updateSigninStatus(isSignedIn) {
-            if (!isSignedIn) {
-                gapi.auth2.getAuthInstance().signIn();
+            const loginButton = document.getElementById('loginButton');
+            const loginStatus = document.getElementById('loginStatus');
+            
+            if (isSignedIn) {
+                // Get the current user and access token
+                const currentUser = gapi.auth2.getAuthInstance().currentUser.get();
+                const authResponse = currentUser.getAuthResponse();
+                const accessToken = authResponse.access_token;
+                
+                console.log('Access Token:', accessToken); // For debugging
+                
+                loginButton.style.display = 'none';
+                loginStatus.textContent = 'Sisse logitud';
+                // Enable app functionality
+                document.getElementById('checkpointSection').style.display = 'block';
+                document.getElementById('cameraSection').style.display = 'block';
+            } else {
+                loginButton.style.display = 'block';
+                loginStatus.textContent = 'Palun logi sisse';
+                // Disable app functionality
+                document.getElementById('checkpointSection').style.display = 'none';
+                document.getElementById('cameraSection').style.display = 'none';
             }
+        }
+
+        function handleAuthClick() {
+            gapi.auth2.getAuthInstance().signIn();
+        }
+
+        function handleSignoutClick() {
+            gapi.auth2.getAuthInstance().signOut();
         }
 
         gapi.load('client:auth2', initGoogleAPI);
@@ -270,6 +307,30 @@
                 displayLocalHistory();
             }
         };
+
+        // You can also create a helper function to get the current token anytime
+        function getCurrentAccessToken() {
+            if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
+                const currentUser = gapi.auth2.getAuthInstance().currentUser.get();
+                return currentUser.getAuthResponse().access_token;
+            }
+            return null;
+        }
+
+        async function makeManualAPICall() {
+            const accessToken = getCurrentAccessToken();
+            if (!accessToken) {
+                console.error('Not logged in!');
+                return;
+            }
+
+            const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets/...', {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            });
+            // ... handle response
+        }
     </script>
 </body>
 </html>
