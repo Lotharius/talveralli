@@ -84,7 +84,6 @@
                 document.getElementById('startScanButton').style.display = 'none';
                 document.getElementById('scanResult').style.display = 'none';
 
-                // Get list of cameras
                 const cameras = await Instascan.Camera.getCameras();
                 
                 if (cameras.length === 0) {
@@ -92,15 +91,19 @@
                     return;
                 }
 
-                // Prefer back camera if available
                 const camera = cameras[cameras.length > 1 ? 1 : 0];
                 
                 scanner = new Instascan.Scanner({
                     video: video,
-                    mirror: false  // Disable mirroring since we're using CSS transform
+                    mirror: false,
+                    scanPeriod: 5  // Scan every 5ms to detect QR code issues faster
                 });
 
                 scanner.addListener('scan', handleScanResult);
+                scanner.addListener('scanError', function(error) {
+                    console.error('Scan error:', error);
+                    alert('QR koodi lugemine ebaõnnestus! Proovi uuesti.');
+                });
 
                 try {
                     await scanner.start(camera);
@@ -207,35 +210,24 @@
             }
         }
 
-        function updateSheet(teamNumber, checkpoint, timestamp, type) {
-            const params = {
-                spreadsheetId: SPREADSHEET_ID,
-                range: 'Sheet1!A:E',
-                valueInputOption: 'RAW',
-                insertDataOption: 'INSERT_ROWS',
-            };
-
-            const values = [
-                [
-                    teamNumber,
-                    checkpoint,
-                    timestamp.toISOString(),
-                    type,
-                ]
-            ];
-
-            const request = {
-                values: values
-            };
-
-            gapi.client.sheets.spreadsheets.values.append(params, request)
-                .then(function(response) {
-                    console.log('Andmed edukalt lisatud');
-                })
-                .catch(function(error) {
-                    console.error('Viga andmete lisamisel:', error);
-                    alert('Viga andmete lisamisel. Palun proovi uuesti.');
+        async function updateSheet(teamNumber, checkpoint, timestamp, type) {
+            try {
+                await gapi.client.sheets.spreadsheets.values.append({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: 'Sheet1',
+                    valueInputOption: 'USER_ENTERED',
+                    insertDataOption: 'INSERT_ROWS',
+                    values: [[
+                        teamNumber,
+                        checkpoint,
+                        timestamp.toLocaleString('et-EE'),
+                        type
+                    ]]
                 });
+            } catch (error) {
+                console.error('Error saving to Google Sheets:', error);
+                alert('Google Sheets salvestamine ebaõnnestus! Andmed on salvestatud ainult lokaalselt.');
+            }
         }
 
         function saveCheckpoint() {
