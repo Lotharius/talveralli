@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Race Checkpoint Scanner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://rawgit.com/schmich/instascan-builds/master/instascan.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #scanner-container {
+            width: 100%;
+            max-width: 640px;
+            margin: 0 auto;
+        }
+        #preview {
+            width: 100%;
+        }
+        .input-group {
+            margin: 20px 0;
+        }
+        .button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="input-group">
+        <label for="checkpoint">Checkpoint Name:</label>
+        <input type="text" id="checkpoint" required>
+    </div>
+
+    <div id="scanner-container">
+        <video id="preview"></video>
+    </div>
+
+    <script>
+        // Google Sheets API configuration
+        const SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID';
+        const API_KEY = 'YOUR_API_KEY';
+        const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+
+        let lastScans = {};
+
+        function initGoogleAPI() {
+            gapi.client.init({
+                apiKey: API_KEY,
+                discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
+                scope: SCOPES
+            });
+        }
+
+        gapi.load('client', initGoogleAPI);
+
+        // Initialize QR Scanner
+        let scanner = new Instascan.Scanner({ video: document.getElementById('preview') });
+        
+        scanner.addListener('scan', function(teamNumber) {
+            const checkpoint = document.getElementById('checkpoint').value;
+            if (!checkpoint) {
+                alert('Please enter a checkpoint name first!');
+                return;
+            }
+
+            const currentTime = new Date();
+            const lastScan = lastScans[teamNumber];
+
+            if (lastScan) {
+                const timeDiff = (currentTime - lastScan) / 1000; // difference in seconds
+                
+                if (timeDiff < 10) {
+                    if (!confirm('Time difference is less than 10 seconds. Are you sure you want to record this exit?')) {
+                        return;
+                    }
+                }
+
+                // Record exit time
+                updateSheet(teamNumber, checkpoint, currentTime, 'exit');
+                delete lastScans[teamNumber];
+            } else {
+                // Record entry time
+                updateSheet(teamNumber, checkpoint, currentTime, 'entry');
+                lastScans[teamNumber] = currentTime;
+            }
+        });
+
+        // Start camera
+        Instascan.Camera.getCameras().then(function(cameras) {
+            if (cameras.length > 0) {
+                scanner.start(cameras[0]);
+            } else {
+                console.error('No cameras found.');
+                alert('No cameras found on your device.');
+            }
+        });
+
+        function updateSheet(teamNumber, checkpoint, timestamp, type) {
+            const params = {
+                spreadsheetId: SPREADSHEET_ID,
+                range: 'Sheet1!A:E',
+                valueInputOption: 'RAW',
+                insertDataOption: 'INSERT_ROWS',
+            };
+
+            const values = [
+                [
+                    teamNumber,
+                    checkpoint,
+                    timestamp.toISOString(),
+                    type,
+                ]
+            ];
+
+            const request = {
+                values: values
+            };
+
+            gapi.client.sheets.spreadsheets.values.append(params, request)
+                .then(function(response) {
+                    console.log('Data added successfully');
+                })
+                .catch(function(error) {
+                    console.error('Error adding data:', error);
+                    alert('Error updating spreadsheet. Please try again.');
+                });
+        }
+    </script>
+</body>
+</html>
