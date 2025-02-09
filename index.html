@@ -122,6 +122,7 @@
         }
     
         function handleScanResult(content) {
+            alert("QR Code Scanned: " + content);
             const teamNumber = content; // Assuming QR content is the team number
             const timestamp = new Date();
             const checkpoint = document.getElementById('displayedCheckpoint').textContent;
