@@ -21,6 +21,11 @@
             border-radius: 4px;
             cursor: pointer;
         }
+        .history-entry {
+            padding: 5px;
+            border-bottom: 1px solid #ccc;
+            margin: 5px 0;
+        }
     </style>
 </head>
 <body>
@@ -55,6 +60,7 @@
         const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 
         let lastScans = {};
+        let localScanHistory = JSON.parse(localStorage.getItem('scanHistory') || '{}');
 
         function initGoogleAPI() {
             gapi.client.init({
@@ -117,9 +123,49 @@
             document.getElementById('startScanButton').style.display = 'block';
         }
     
+        function saveToLocalHistory(teamNumber, checkpoint, timestamp, type) {
+            if (!localScanHistory[checkpoint]) {
+                localScanHistory[checkpoint] = [];
+            }
+            
+            localScanHistory[checkpoint].push({
+                teamNumber: teamNumber,
+                timestamp: timestamp.toISOString(),
+                type: type
+            });
+            
+            localStorage.setItem('scanHistory', JSON.stringify(localScanHistory));
+            displayLocalHistory();
+        }
+
+        function displayLocalHistory() {
+            const checkpoint = document.getElementById('displayedCheckpoint').textContent;
+            const historyDiv = document.getElementById('localHistory');
+            if (!historyDiv) {
+                // Create history section if it doesn't exist
+                const section = document.createElement('div');
+                section.id = 'localHistory';
+                section.innerHTML = '<h3>Kohalik ajalugu:</h3><div id="historyContent"></div>';
+                document.getElementById('scanResult').after(section);
+            }
+            
+            const historyContent = document.getElementById('historyContent');
+            const checkpointHistory = localScanHistory[checkpoint] || [];
+            
+            historyContent.innerHTML = checkpointHistory
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                .slice(0, 10) // Show last 10 entries
+                .map(entry => `
+                    <div class="history-entry">
+                        Meeskond ${entry.teamNumber} - 
+                        ${new Date(entry.timestamp).toLocaleString('et-EE')} - 
+                        ${entry.type}
+                    </div>
+                `).join('');
+        }
+
         function handleScanResult(content) {
-            alert("QR Code Scanned: " + content);
-            const teamNumber = content; // Assuming QR content is the team number
+            const teamNumber = content;
             const timestamp = new Date();
             const checkpoint = document.getElementById('displayedCheckpoint').textContent;
             
@@ -138,7 +184,7 @@
                 const lastScan = lastScans[teamNumber];
                 
                 if (lastScan) {
-                    const timeDiff = (timestamp - lastScan) / 1000; // difference in seconds
+                    const timeDiff = (timestamp - lastScan) / 1000;
                     
                     if (timeDiff < 10) {
                         if (!confirm('Ajavahemik on vähem kui 10 sekundit. Kas oled kindel, et soovid väljumise registreerida?')) {
@@ -148,14 +194,15 @@
 
                     // Record exit time
                     updateSheet(teamNumber, checkpoint, timestamp, 'väljumine');
+                    saveToLocalHistory(teamNumber, checkpoint, timestamp, 'väljumine');
                     delete lastScans[teamNumber];
                 } else {
                     // Record entry time
                     updateSheet(teamNumber, checkpoint, timestamp, 'saabumine');
+                    saveToLocalHistory(teamNumber, checkpoint, timestamp, 'saabumine');
                     lastScans[teamNumber] = timestamp;
                 }
             } else {
-                // If user cancels, restart scanning
                 startScanning();
             }
         }
@@ -208,13 +255,14 @@
             document.getElementById('checkpointDisplay').style.display = 'none';
         }
 
-        // Load saved checkpoint name on page load
+        // Add this to window.onload to display history when page loads
         window.onload = function() {
             const savedCheckpoint = localStorage.getItem('checkpointName');
             if (savedCheckpoint) {
                 document.getElementById('displayedCheckpoint').textContent = savedCheckpoint;
                 document.getElementById('checkpointInput').style.display = 'none';
                 document.getElementById('checkpointDisplay').style.display = 'block';
+                displayLocalHistory();
             }
         };
     </script>
