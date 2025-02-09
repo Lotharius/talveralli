@@ -10,14 +10,6 @@
             font-family: Arial, sans-serif;
             margin: 20px;
         }
-        #scanner-container {
-            width: 100%;
-            max-width: 640px;
-            margin: 0 auto;
-        }
-        #preview {
-            width: 100%;
-        }
         .input-group {
             margin: 20px 0;
         }
@@ -42,9 +34,17 @@
             <button onclick="editCheckpoint()" style="margin-left: 10px;">Muuda</button>
         </div>
     </div>
-
-    <div id="scanner-container">
-        <video id="preview"></video>
+    
+    <!-- Camera Control Section -->
+    <div id="cameraSection" style="margin: 20px 0;">
+        <button id="startScanButton" onclick="startScanning()">Skänni QR kood</button>
+        <div id="cameraView" style="display: none;">
+            <video id="qr-video" style="width: 100%; max-width: 500px;"></video>
+        </div>
+        <div id="scanResult" style="display: none; margin-top: 10px;">
+            <p>Meeskonna number: <span id="teamNumber"></span></p>
+            <p>Aeg: <span id="timestamp"></span></p>
+        </div>
     </div>
 
     <script>
@@ -66,7 +66,67 @@
         gapi.load('client', initGoogleAPI);
 
         // Initialize QR Scanner
-        let scanner = new Instascan.Scanner({ video: document.getElementById('preview') });
+        let scanner = null;
+        let videoStream = null;
+    
+        async function startScanning() {
+            try {
+                const video = document.getElementById('qr-video');
+                document.getElementById('cameraView').style.display = 'block';
+                document.getElementById('startScanButton').style.display = 'none';
+                document.getElementById('scanResult').style.display = 'none';
+    
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { exact: "environment" } }
+                });
+                videoStream = stream;
+                video.srcObject = stream;
+                video.play();
+    
+                scanner = new Instascan.Scanner({ video: video });
+                scanner.addListener('scan', function(content) {
+                    handleScanResult(content);
+                    stopScanning();
+                });
+                scanner.start();
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                // If environment camera fails, try without exact requirement
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: "environment" }
+                    });
+                    videoStream = stream;
+                    video.srcObject = stream;
+                    video.play();
+                } catch (fallbackError) {
+                    alert('Error accessing camera. Please make sure you have granted camera permissions.');
+                }
+            }
+        }
+
+        function stopScanning() {
+            if (scanner) {
+                scanner.stop();
+            }
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            document.getElementById('cameraView').style.display = 'none';
+            document.getElementById('startScanButton').style.display = 'block';
+        }
+    
+        function handleScanResult(content) {
+            const teamNumber = content; // Assuming QR content is the team number
+            const timestamp = new Date().toLocaleString('et-EE');
+            
+            document.getElementById('teamNumber').textContent = teamNumber;
+            document.getElementById('timestamp').textContent = timestamp;
+            document.getElementById('scanResult').style.display = 'block';
+            
+            // Here you can add code to send the data to your spreadsheet
+        }
         
         scanner.addListener('scan', function(teamNumber) {
             const checkpoint = document.getElementById('checkpoint').value;
