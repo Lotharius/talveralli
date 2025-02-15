@@ -44,7 +44,7 @@
             <button onclick="editCheckpoint()" style="margin-left: 10px;">Muuda</button>
         </div>
     </div>
-    
+
     <!-- Camera Control Section -->
     <div id="cameraSection" style="margin: 20px 0;">
         <button id="startScanButton" onclick="startScanning()">Skänni QR kood</button>
@@ -59,11 +59,16 @@
     </div>
 
     <script>
+        // Create a Trusted Types policy
+        const policy = trustedTypes.createPolicy('default', {
+            createHTML: (string) => string,
+            createScriptURL: (string) => string,
+        });
+
         // Update Google Sheets configuration
         const SPREADSHEET_ID = '1unoy_AsYC36AJWFTaL13N2M4lAj0JSpqBfTdzvCofFY';
         const CLIENT_ID = '521217441792-2fsh5qs3g87ca36mfs1mja80i61g4pb7.apps.googleusercontent.com'; // You'll get this from Google Cloud Console
         const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
-
 
         let lastScans = {};
         let localScanHistory = JSON.parse(localStorage.getItem('scanHistory') || '{}');
@@ -89,15 +94,15 @@
         function updateSigninStatus(isSignedIn) {
             const loginButton = document.getElementById('loginButton');
             const loginStatus = document.getElementById('loginStatus');
-            
+
             if (isSignedIn) {
                 // Get the current user and access token
                 const currentUser = gapi.auth2.getAuthInstance().currentUser.get();
                 const authResponse = currentUser.getAuthResponse();
                 const accessToken = authResponse.access_token;
-                
+
                 console.log('Access Token:', accessToken); // For debugging
-                
+
                 loginButton.style.display = 'none';
                 loginStatus.textContent = 'Sisse logitud';
                 // Enable app functionality
@@ -126,7 +131,7 @@
         let scanner = null;
         let videoStream = null;
         const video = document.getElementById('qr-video');
-    
+
         async function startScanning() {
             try {
                 const video = document.getElementById('qr-video');
@@ -135,14 +140,14 @@
                 document.getElementById('scanResult').style.display = 'none';
 
                 const cameras = await Instascan.Camera.getCameras();
-                
+
                 if (cameras.length === 0) {
                     alert('Kaameraid ei leitud!');
                     return;
                 }
 
                 const camera = cameras[cameras.length > 1 ? 1 : 0];
-                
+
                 scanner = new Instascan.Scanner({
                     video: video,
                     mirror: false,
@@ -175,18 +180,18 @@
             document.getElementById('cameraView').style.display = 'none';
             document.getElementById('startScanButton').style.display = 'block';
         }
-    
+
         function saveToLocalHistory(teamNumber, checkpoint, timestamp, type) {
             if (!localScanHistory[checkpoint]) {
                 localScanHistory[checkpoint] = [];
             }
-            
+
             localScanHistory[checkpoint].push({
                 teamNumber: teamNumber,
                 timestamp: timestamp.toISOString(),
                 type: type
             });
-            
+
             localStorage.setItem('scanHistory', JSON.stringify(localScanHistory));
             displayLocalHistory();
         }
@@ -198,47 +203,47 @@
                 // Create history section if it doesn't exist
                 const section = document.createElement('div');
                 section.id = 'localHistory';
-                section.innerHTML = '<h3>Kohalik ajalugu:</h3><div id="historyContent"></div>';
+                section.innerHTML = policy.createHTML('<h3>Kohalik ajalugu:</h3><div id="historyContent"></div>');
                 document.getElementById('scanResult').after(section);
             }
-            
+
             const historyContent = document.getElementById('historyContent');
             const checkpointHistory = localScanHistory[checkpoint] || [];
-            
+
             historyContent.innerHTML = checkpointHistory
                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
                 .slice(0, 10) // Show last 10 entries
-                .map(entry => `
+                .map(entry => policy.createHTML(`
                     <div class="history-entry">
-                        Meeskond ${entry.teamNumber} - 
-                        ${new Date(entry.timestamp).toLocaleString('et-EE')} - 
+                        Meeskond ${entry.teamNumber} -
+                        ${new Date(entry.timestamp).toLocaleString('et-EE')} -
                         ${entry.type}
                     </div>
-                `).join('');
+                `)).join('');
         }
 
         function handleScanResult(content) {
             const teamNumber = content;
             const timestamp = new Date();
             const checkpoint = document.getElementById('displayedCheckpoint').textContent;
-            
+
             if (!checkpoint) {
                 alert('Palun sisesta kontrollpunkti nimi enne skännimist!');
                 return;
             }
 
             const confirmMessage = `Kas soovid salvestada?\n\nMeeskonna number: ${teamNumber}\nAeg: ${timestamp.toLocaleString('et-EE')}`;
-            
+
             if (confirm(confirmMessage)) {
                 document.getElementById('teamNumber').textContent = teamNumber;
                 document.getElementById('timestamp').textContent = timestamp.toLocaleString('et-EE');
                 document.getElementById('scanResult').style.display = 'block';
-                
+
                 const lastScan = lastScans[teamNumber];
-                
+
                 if (lastScan) {
                     const timeDiff = (timestamp - lastScan) / 1000;
-                    
+
                     if (timeDiff < 10) {
                         if (!confirm('Ajavahemik on vähem kui 10 sekundit. Kas oled kindel, et soovid väljumise registreerida?')) {
                             return;
