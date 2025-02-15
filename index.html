@@ -31,7 +31,14 @@
 </head>
 <body>
     <div id="loginSection" style="margin: 20px 0;">
-        <button id="loginButton" onclick="handleAuthClick()" style="display: none;">Logi sisse Google'iga</button>
+        <div id="g_id_onload"
+             data-client_id="521217441792-2fsh5qs3g87ca36mfs1mja80i61g4pb7.apps.googleusercontent.com"
+             data-context="signin"
+             data-ux_mode="popup"
+             data-callback="handleCredentialResponse"
+             data-auto_prompt="false">
+        </div>
+        <div class="g_id_signin" data-type="standard"></div>
         <span id="loginStatus"></span>
     </div>
     <div id="checkpointSection" style="margin: 20px 0;">
@@ -59,19 +66,23 @@
     </div>
 
     <script>
-        // Create a Trusted Types policy
-        const policy = trustedTypes.createPolicy('default', {
-            createHTML: (string) => string,
-            createScriptURL: (string) => string,
-        });
-
-        // Update Google Sheets configuration
-        const SPREADSHEET_ID = '1unoy_AsYC36AJWFTaL13N2M4lAj0JSpqBfTdzvCofFY';
-        const CLIENT_ID = '521217441792-2fsh5qs3g87ca36mfs1mja80i61g4pb7.apps.googleusercontent.com'; // You'll get this from Google Cloud Console
+        const CLIENT_ID = '521217441792-2fsh5qs3g87ca36mfs1mja80i61g4pb7.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
-
+        const SPREADSHEET_ID = '1unoy_AsYC36AJWFTaL13N2M4lAj0JSpqBfTdzvCofFY';
+        
         let lastScans = {};
         let localScanHistory = JSON.parse(localStorage.getItem('scanHistory') || '{}');
+
+        function handleCredentialResponse(response) {
+            const loginStatus = document.getElementById('loginStatus');
+            const checkpointSection = document.getElementById('checkpointSection');
+            const cameraSection = document.getElementById('cameraSection');
+            
+            console.log('Encoded JWT ID token: ' + response.credential);
+            loginStatus.textContent = 'Sisse logitud';
+            checkpointSection.style.display = 'block';
+            cameraSection.style.display = 'block';
+        }
 
         function initGoogleAPI() {
             gapi.client.init({
@@ -79,11 +90,8 @@
                 discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
                 scope: SCOPES
             }).then(function() {
-                // Show login button once API is initialized
                 document.getElementById('loginButton').style.display = 'block';
-                // Listen for sign-in state changes
                 gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
-                // Handle the initial sign-in state
                 updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
             }).catch(function(error) {
                 console.error('Error initializing Google API:', error);
@@ -96,22 +104,19 @@
             const loginStatus = document.getElementById('loginStatus');
 
             if (isSignedIn) {
-                // Get the current user and access token
                 const currentUser = gapi.auth2.getAuthInstance().currentUser.get();
                 const authResponse = currentUser.getAuthResponse();
                 const accessToken = authResponse.access_token;
 
-                console.log('Access Token:', accessToken); // For debugging
+                console.log('Access Token:', accessToken);
 
                 loginButton.style.display = 'none';
                 loginStatus.textContent = 'Sisse logitud';
-                // Enable app functionality
                 document.getElementById('checkpointSection').style.display = 'block';
                 document.getElementById('cameraSection').style.display = 'block';
             } else {
                 loginButton.style.display = 'block';
                 loginStatus.textContent = 'Palun logi sisse';
-                // Disable app functionality
                 document.getElementById('checkpointSection').style.display = 'none';
                 document.getElementById('cameraSection').style.display = 'none';
             }
@@ -127,7 +132,6 @@
 
         gapi.load('client:auth2', initGoogleAPI);
 
-        // Initialize variables
         let scanner = null;
         let videoStream = null;
         const video = document.getElementById('qr-video');
@@ -151,7 +155,7 @@
                 scanner = new Instascan.Scanner({
                     video: video,
                     mirror: false,
-                    scanPeriod: 5  // Scan every 5ms to detect QR code issues faster
+                    scanPeriod: 5
                 });
 
                 scanner.addListener('scan', handleScanResult);
@@ -200,10 +204,9 @@
             const checkpoint = document.getElementById('displayedCheckpoint').textContent;
             const historyDiv = document.getElementById('localHistory');
             if (!historyDiv) {
-                // Create history section if it doesn't exist
                 const section = document.createElement('div');
                 section.id = 'localHistory';
-                section.innerHTML = policy.createHTML('<h3>Kohalik ajalugu:</h3><div id="historyContent"></div>');
+                section.innerHTML = '<h3>Kohalik ajalugu:</h3><div id="historyContent"></div>';
                 document.getElementById('scanResult').after(section);
             }
 
@@ -212,14 +215,14 @@
 
             historyContent.innerHTML = checkpointHistory
                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-                .slice(0, 10) // Show last 10 entries
-                .map(entry => policy.createHTML(`
+                .slice(0, 10)
+                .map(entry => `
                     <div class="history-entry">
                         Meeskond ${entry.teamNumber} -
                         ${new Date(entry.timestamp).toLocaleString('et-EE')} -
                         ${entry.type}
                     </div>
-                `)).join('');
+                `).join('');
         }
 
         function handleScanResult(content) {
@@ -250,12 +253,10 @@
                         }
                     }
 
-                    // Record exit time
                     updateSheet(teamNumber, checkpoint, timestamp, 'väljumine');
                     saveToLocalHistory(teamNumber, checkpoint, timestamp, 'väljumine');
                     delete lastScans[teamNumber];
                 } else {
-                    // Record entry time
                     updateSheet(teamNumber, checkpoint, timestamp, 'saabumine');
                     saveToLocalHistory(teamNumber, checkpoint, timestamp, 'saabumine');
                     lastScans[teamNumber] = timestamp;
@@ -302,7 +303,6 @@
             document.getElementById('checkpointDisplay').style.display = 'none';
         }
 
-        // Add this to window.onload to display history when page loads
         window.onload = function() {
             const savedCheckpoint = localStorage.getItem('checkpointName');
             if (savedCheckpoint) {
@@ -313,7 +313,6 @@
             }
         };
 
-        // You can also create a helper function to get the current token anytime
         function getCurrentAccessToken() {
             if (gapi.auth2.getAuthInstance().isSignedIn.get()) {
                 const currentUser = gapi.auth2.getAuthInstance().currentUser.get();
@@ -334,7 +333,6 @@
                     'Authorization': `Bearer ${accessToken}`
                 }
             });
-            // ... handle response
         }
     </script>
 </body>
